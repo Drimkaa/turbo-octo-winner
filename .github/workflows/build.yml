@@ -1,0 +1,51 @@
+name: Build LibreCAD plugin
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2019
+
+    steps:
+      - name: Check out plugin source
+        uses: actions/checkout@v4
+
+      - name: Check out LibreCAD 2.2.1 headers
+        uses: actions/checkout@v4
+        with:
+          repository: LibreCAD/LibreCAD
+          ref: 2.2.1
+          path: LibreCAD
+          fetch-depth: 1
+
+      - name: Configure MSVC x64 environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt 5.15.2 for MSVC 2019 x64
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check aqtinstall
+          aqt install-qt --outputdir "$env:RUNNER_TEMP\Qt" windows desktop 5.15.2 win64_msvc2019_64
+
+      - name: Build and test
+        shell: pwsh
+        run: |
+          .\build.ps1 `
+            -QtDir "$env:RUNNER_TEMP\Qt\5.15.2\msvc2019_64" `
+            -LibreCadSource "$env:GITHUB_WORKSPACE\LibreCAD"
+
+      - name: Upload plugin DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: leather-stitch-array-windows-x64
+          path: build/plugin/leatherstitcharray*.dll
+          if-no-files-found: error
+          retention-days: 14
